@@ -14,24 +14,30 @@ pvstate_file = os.path.join(cwd, '2d_vorticity_post.pvsm')
 case_dir = os.path.dirname(cwd)
 foam_file = os.path.join(case_dir, 'open.foam')
 vorz_output_folder = os.path.join(cwd, 'vorz_data')
+qctr_output_folder = os.path.join(cwd, 'q_data')
 wgeo_output_folder = os.path.join(cwd, 'wgeo_data')
 
 if os.path.exists(vorz_output_folder):
     shutil.rmtree(vorz_output_folder)
 os.mkdir(vorz_output_folder)
 
+if os.path.exists(qctr_output_folder):
+    shutil.rmtree(qctr_output_folder)
+os.mkdir(qctr_output_folder)
+
 if os.path.exists(wgeo_output_folder):
     shutil.rmtree(wgeo_output_folder)
 os.mkdir(wgeo_output_folder)
 
 vorz_output_files = os.path.join(vorz_output_folder, 'vorz.csv')
-wgeo_output_files = os.path.join(wgeo_output_folder,
-                                          'wgeo.csv')
+qctr_output_files = os.path.join(qctr_output_folder, 'q.csv')
+wgeo_output_files = os.path.join(wgeo_output_folder, 'wgeo.csv')
 
 # load state
 LoadState(pvstate_file,
           LoadStateDataFileOptions='Choose File Names',
-          openfoamFileName=foam_file)
+          openfoamFileName=foam_file,
+          openfoam1FileName=foam_file)
 
 # get animation scene
 # animationScene1 = GetAnimationScene()
@@ -60,6 +66,18 @@ SetActiveSource(vorZ)
 # save data
 SaveData(vorz_output_files,
          proxy=vorZ,
+         WriteTimeSteps=1,
+         Filenamesuffix='_%.4d',
+         Precision=10,
+         UseScientificNotation=1)
+
+# change to Q criterion data
+q_criterion = FindSource('Q')
+SetActiveSource(q_criterion)
+
+# save data
+SaveData(qctr_output_files,
+         proxy=q_criterion,
          WriteTimeSteps=1,
          Filenamesuffix='_%.4d',
          Precision=10,
