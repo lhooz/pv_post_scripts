@@ -1,6 +1,5 @@
-"""plotting cfd run forces coefficient results"""
+"""fuctions for plotting cfd run results against ref data"""
 
-import os
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,7 +50,7 @@ def read_ref_data(ref_data_file):
     return ref_array
 
 
-def cf_plotter(data_array, legends, data_to_plot, cycle_to_plot):
+def cf_plotter(data_array, legends, data_to_plot, time_to_plot):
     """
     function to plot cfd force coefficients results
     """
@@ -62,8 +61,15 @@ def cf_plotter(data_array, legends, data_to_plot, cycle_to_plot):
 
     ref_array_shifted = []
     for ref_arrayi in ref_array:
-        ref_arrayi = np.array(
-            [ref_arrayi[:, 0] + cycle_to_plot - 1, ref_arrayi[:, 1]])
+        if time_to_plot == 'all':
+            ref_arrayi = np.array([
+                ref_arrayi[:, 0] - np.rint(ref_arrayi[0, 0]), ref_arrayi[:, 1]
+            ])
+        else:
+            ref_arrayi = np.array([
+                ref_arrayi[:, 0] - np.rint(ref_arrayi[0, 0]) + time_to_plot[0],
+                ref_arrayi[:, 1]
+            ])
         ref_arrayi = np.transpose(ref_arrayi)
 
         ref_array_shifted.append(ref_arrayi)
@@ -75,7 +81,7 @@ def cf_plotter(data_array, legends, data_to_plot, cycle_to_plot):
         cf_plot_id = np.logical_or(cf_plot_id, cf_legends == data_to_ploti)
         ref_plot_id = np.logical_or(ref_plot_id, ref_legends == data_to_ploti)
 
-        # print(ref_legends == data_to_ploti)
+        # print(cf_legends == data_to_ploti)
     # print(cf_plot_id)
 
     fig, ax = plt.subplots(1, 1)
@@ -97,35 +103,9 @@ def cf_plotter(data_array, legends, data_to_plot, cycle_to_plot):
     ax.set_title(title)
     ax.legend()
 
-    ax.set_xlim([cycle_to_plot - 1, cycle_to_plot])
+    if time_to_plot != 'all':
+        ax.set_xlim(time_to_plot)
 
     plt.show()
 
     return fig
-
-
-#-------------------------------------------------------------------
-cwd = os.getcwd()
-cfd_data_list = ['ff', 'adff', 'dlff']
-ref_data_lst = ['ff_dickinson', 'adff_dickinson', 'dlff_dickinson']
-
-cf_array = []
-for cfi in cfd_data_list:
-    cfd_datai = os.path.join(cwd, cfi)
-    cf_arrayi = read_cfd_data(cfd_datai)
-
-    cf_array.append(cf_arrayi)
-
-ref_array = []
-for refi in ref_data_lst:
-    ref_datai = os.path.join(cwd, refi)
-    ref_arrayi = read_ref_data(ref_datai)
-
-    ref_array.append(ref_arrayi)
-
-data_array = [cf_array, ref_array]
-legends = [cfd_data_list, ref_data_lst]
-data_to_plot = ['dlff', 'dlff_dickinson']
-cycle_to_plot = 5
-
-cf_plotter(data_array, legends, data_to_plot, cycle_to_plot)
