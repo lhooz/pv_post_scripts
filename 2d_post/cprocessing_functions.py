@@ -1,11 +1,12 @@
 """circulation processing functions"""
 
-import os
 import csv
+import os
 import shutil
-import numpy as np
-import matplotlib.pyplot as plt
+
 import matplotlib.path as mpltPath
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy.interpolate
 from scipy import ndimage
 
@@ -94,7 +95,10 @@ def geometry_filter(grid_x, grid_y, wgeo_array, wbound_radius):
     # writer = csv.writer(file)
     # writer.writerows(g_filter)
 
-    return g_filter
+    wgeo_bound_x = [-np.amax(-wgeo_array[:, 0]), np.amax(wgeo_array[:, 0])]
+    # print(wgeo_bound_x)
+
+    return g_filter, wgeo_bound_x
 
 
 def threshold_filter(grid_t, threshold, datatype):
@@ -163,7 +167,8 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
     grid_x, grid_y, grid_vz = grid_vorz(window, resolution, vor_array)
     grid_x, grid_y, grid_q = grid_vorz(window, resolution, q_array)
 
-    g_filter = geometry_filter(grid_x, grid_y, wgeo_array, wbound_radius)
+    g_filter, wgeo_bound_x = geometry_filter(grid_x, grid_y, wgeo_array,
+                                             wbound_radius)
 
     t_filter_q = threshold_filter(grid_q, threshold_q, 'q')
     t_filter_vorz = threshold_filter(grid_vz, threshold_vorz, 'vorticity')
@@ -210,39 +215,85 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
          if vz[0] >= threshold_circulation * np.amax(circulations[:, 0])
          or vz[0] <= threshold_circulation * -np.amax(-circulations[:, 0])])
 
-    pvortices = np.array(
-        [[loc[0], loc[1], vz[0], vz[1]]
-         for loc, vz in zip(vorz_locations, circulations)
-         if vz[0] >= threshold_circulation * np.amax(circulations[:, 0])])
-    if len(pvortices) > 0:
-        pvortices = pvortices[pvortices[:, 2].argsort()[::-1]]
-
-    nvortices = np.array(
-        [[loc[0], loc[1], vz[0], vz[1]]
-         for loc, vz in zip(vorz_locations, circulations)
-         if vz[0] <= threshold_circulation * -np.amax(-circulations[:, 0])])
-    if len(nvortices) > 0:
-        nvortices = nvortices[nvortices[:, 2].argsort()]
     #-------------------------------------------------------------------------
     #-----organizing outputs------------
-    pcirculation_filter = vorz_filter * 0
-    ncirculation_filter = vorz_filter * 0
+    circulation_filter = vorz_filter * 0
 
-    for vortexi in pvortices:
-        pcirculation_filter += (vorz_l[0] == vortexi[3]) * 1
-    for vortexi in nvortices:
-        ncirculation_filter += (vorz_l[0] == vortexi[3]) * 1
-    circulation_filter = pcirculation_filter + ncirculation_filter
+    for vortexi in vortices:
+        circulation_filter += (vorz_l[0] == vortexi[3]) * 1
 
-    pvz_filtered = vorz_processing(grid_vz, pcirculation_filter)
-    nvz_filtered = vorz_processing(grid_vz, ncirculation_filter)
-    vz_filtered = pvz_filtered + nvz_filtered
+    vz_flags = vorz_processing(vorz_l[0], circulation_filter)
 
-    sorted_vortices = [pvortices, nvortices, vortices]
-    image_vortices = [
-        pcirculation_filter, ncirculation_filter, circulation_filter
-    ]
-    vz_field_filtered = [pvz_filtered, nvz_filtered, vz_filtered, grid_vz]
+    vz_circulations = vortices
+    image_vortices = circulation_filter
+    vz_field = [grid_vz, vz_flags]
     #-------------------------------------------------------------
 
-    return sorted_vortices, image_vortices, vz_field_filtered
+    return vz_circulations, image_vortices, vz_field, wgeo_bound_x
+
+
+def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
+                          vortices_current):
+    """
+    give number to all current vortices according to numbers in last time step
+    """
+    marked_vortices_current = []
+    for vortex in vortices_current:
+        vectori = np.array([[vl[2] - vortex[0], vl[3] - vortex[1]]
+                            for vl, vc in zip(vortices_last, vortices_current)
+                            ])
+        dist_array = np.linalg.norm(vectori, axis=1)
+        id_min = dist_array.argmin()
+        print(dist_array[id_min])
+
+        if dist_array[id_min] <= v_vanish_dist:
+            vortex_mark = vortices_last[id_min][0]
+        else:
+            no_of_vortices += 1
+            vortex_mark = no_of_vortices
+
+        marked_vortex = [
+            vortex_mark, timei, vortex[0], vortex[1], vortex[2], vortex[3]
+        ]
+        marked_vortices_current.append(marked_vortex)
+
+    marked_vortices_current = np.array(marked_vortices_current)
+
+    return no_of_vortices, marked_vortices_current
+
+
+def vortices_tracking(data_time_increment, wgeo_boundx_history,
+                      v_vanish_dist_factor, vortices_history):
+    """
+    tracking algorithm for individual vortex
+    """
+    wgeo_boundx_history = np.array(wgeo_boundx_history)
+    time_series_length = len(vortices_history)
+    ref_wing_movement = np.diff(wgeo_boundx_history, axis=0)
+    v_vanish_dist = v_vanish_dist_factor * np.amax(
+        np.absolute(ref_wing_movement), axis=1)
+    v_vanish_dist = np.insert(v_vanish_dist, 0, 1)
+    print(v_vanish_dist)
+
+    no_of_vortices = 0
+    vortices_0 = []
+    for i in range(len(vortices_history[0])):
+        vortexi = [
+            i + 1, 0, vortices_history[0][i][0], vortices_history[0][i][1], 0,
+            vortices_history[0][i][3]
+        ]
+        vortices_0.append(vortexi)
+        no_of_vortices += 1
+
+    vortices_last = np.array(vortices_0)
+    marked_vortices = [vortices_last]
+    for i in range(time_series_length):
+        timei = (i + 1) * data_time_increment
+        vortices_current = vortices_history[i]
+        no_of_vortices, vortices_last = mark_current_vortices(
+            no_of_vortices, timei, v_vanish_dist[i], vortices_last,
+            vortices_current)
+
+        marked_vortices.append(vortices_last)
+
+    print(marked_vortices)
