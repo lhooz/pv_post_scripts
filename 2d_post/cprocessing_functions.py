@@ -244,7 +244,7 @@ def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
                             ])
         dist_array = np.linalg.norm(vectori, axis=1)
         id_min = dist_array.argmin()
-        print(dist_array[id_min])
+        # print(dist_array[id_min])
 
         if dist_array[id_min] <= v_vanish_dist:
             vortex_mark = vortices_last[id_min][0]
@@ -262,38 +262,98 @@ def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
     return no_of_vortices, marked_vortices_current
 
 
-def vortices_tracking(data_time_increment, wgeo_boundx_history,
-                      v_vanish_dist_factor, vortices_history):
+def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
+                      v_vanish_dist_factor, marked_vortices_history,
+                      vortices_current):
     """
     tracking algorithm for individual vortex
     """
-    wgeo_boundx_history = np.array(wgeo_boundx_history)
-    time_series_length = len(vortices_history)
-    ref_wing_movement = np.diff(wgeo_boundx_history, axis=0)
-    v_vanish_dist = v_vanish_dist_factor * np.amax(
-        np.absolute(ref_wing_movement), axis=1)
-    v_vanish_dist = np.insert(v_vanish_dist, 0, 1)
-    print(v_vanish_dist)
+    no_of_vortices_current = len(vortices_current)
 
-    no_of_vortices = 0
-    vortices_0 = []
-    for i in range(len(vortices_history[0])):
-        vortexi = [
-            i + 1, 0, vortices_history[0][i][0], vortices_history[0][i][1], 0,
-            vortices_history[0][i][3]
+    if len(marked_vortices_history) == 0:
+        vortices_0 = []
+        for i in range(no_of_vortices_current):
+            vortexi = [
+                i + 1, 0, vortices_current[i][0], vortices_current[i][1], 0,
+                vortices_current[i][3]
+            ]
+            vortices_0.append(vortexi)
+            no_of_vortices += 1
+
+        marked_vortices_history.append(np.array(vortices_0))
+        v_vanish_dist = 1
+    else:
+        ref_wing_movement = np.subtract(wgeo_boundx_history[-1],
+                                        wgeo_boundx_history[-2])
+        ref_wing_movement = np.array(ref_wing_movement)
+
+        v_vanish_dist = v_vanish_dist_factor * np.amax(
+            np.absolute(ref_wing_movement))
+
+    # print(v_vanish_dist)
+    vortices_last = marked_vortices_history[-1]
+    no_of_vortices, marked_vortices_current = mark_current_vortices(
+        no_of_vortices, timei, v_vanish_dist, vortices_last, vortices_current)
+
+    marked_vortices_history.append(marked_vortices_current)
+    print(f'No of vortices in current field: {no_of_vortices_current}')
+    print(f'Total No of vortices in history: {no_of_vortices} \n')
+
+    return no_of_vortices, marked_vortices_history
+
+
+def write_individual_vortex(window, time_instance, marked_vortices_history,
+                            vz_field, individual_vortex_folder,
+                            v_no_save_image):
+    """
+    write out individual vortex history data files
+    """
+
+    vz_field_flags = vz_field[1]
+    marked_vortices_current = marked_vortices_history[-1]
+    exist_vortices_no = np.unique(marked_vortices_current[:, 0])
+    if not v_no_save_image == 0:
+        ind_v_image_folder = os.path.join(
+            individual_vortex_folder,
+            'image_vortex_no_' + str(v_no_save_image))
+
+        if not os.path.exists(ind_v_image_folder):
+            os.mkdir(ind_v_image_folder)
+
+        ind_v_image_file = os.path.join(ind_v_image_folder,
+                                        'time_' + time_instance + '.png')
+
+    for exist_v_noi in exist_vortices_no:
+        ind_vortex_history_file = os.path.join(individual_vortex_folder,
+                                               'vortex_no_' + str(exist_v_noi))
+        # ---------------merging vortices of the same no --------------
+        id_vortexi = np.where(marked_vortices_current[:, 0] == exist_v_noi)[0]
+
+        circulation_v_noi = 0
+        weighted_x = 0
+        weighted_y = 0
+        image_v_noi = vz_field_flags * 0
+        for id_for_v_noi in id_vortexi:
+            circulation_v_noi += marked_vortices_current[id_for_v_noi][4]
+            weighted_x += marked_vortices_current[id_for_v_noi][2]
+            weighted_y += marked_vortices_current[id_for_v_noi][3]
+            image_v_noi += (vz_field_flags ==
+                            marked_vortices_current[id_for_v_noi][-1]) * 1
+
+        merged_x = weighted_x / circulation_v_noi
+        merged_y = weighted_y / circulation_v_noi
+
+        ind_vortex_historyi = [
+            str(marked_vortices_current[0][1]),
+            str(merged_x),
+            str(merged_y),
+            str(circulation_v_noi)
         ]
-        vortices_0.append(vortexi)
-        no_of_vortices += 1
 
-    vortices_last = np.array(vortices_0)
-    marked_vortices = [vortices_last]
-    for i in range(time_series_length):
-        timei = (i + 1) * data_time_increment
-        vortices_current = vortices_history[i]
-        no_of_vortices, vortices_last = mark_current_vortices(
-            no_of_vortices, timei, v_vanish_dist[i], vortices_last,
-            vortices_current)
+        with open(ind_vortex_history_file, 'a') as f:
+            f.write("%s\n" % ', '.join(ind_vortex_historyi))
 
-        marked_vortices.append(vortices_last)
-
-    print(marked_vortices)
+        if v_no_save_image == exist_v_noi:
+            field_plot(window, vz_field[0], image_v_noi, ind_v_image_file,
+                       'save')
+            plt.close()
