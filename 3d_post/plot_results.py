@@ -2,11 +2,18 @@
 import os
 from functions_plotting import read_cfd_data, read_ref_data, cf_plotter
 
-cwd = os.getcwd()
-cfd_data_list = ['sym', 'ad', 'dl']
-ref_data_lst = ['sym_exp', 'sym_cfd1', 'sym_cfd2']
-# ref_data_lst = []
+#-------------input plot control----------
+cfd_data_list = ['rev_single', 'rev_pair']
+# ref_data_lst = ['sym_exp', 'sym_cfd1', 'sym_cfd2']
+ref_data_lst = []
 
+data_to_plot = ['rev_single', 'rev_pair']
+time_to_plot = 'all'
+# time_to_plot = [3, 4]
+#---------------------------------------
+cwd = os.getcwd()
+image_out_path = cwd
+#---------------------------------------
 cf_array = []
 for cfi in cfd_data_list:
     cfd_datai = os.path.join(cwd, cfi)
@@ -23,8 +30,6 @@ for refi in ref_data_lst:
 
 data_array = [cf_array, ref_array]
 legends = [cfd_data_list, ref_data_lst]
-data_to_plot = ['sym', 'sym_exp', 'sym_cfd1', 'sym_cfd2']
-# time_to_plot = 'all'
-time_to_plot = [3, 4]
+#---------------------------------------
 
-cf_plotter(data_array, legends, data_to_plot, time_to_plot)
+cf_plotter(data_array, legends, data_to_plot, time_to_plot, image_out_path)

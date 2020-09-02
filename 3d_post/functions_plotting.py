@@ -1,6 +1,7 @@
 """fuctions for plotting cfd run results against ref data"""
 
 import csv
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -50,7 +51,8 @@ def read_ref_data(ref_data_file):
     return ref_array
 
 
-def cf_plotter(data_array, legends, data_to_plot, time_to_plot):
+def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
+               image_out_path):
     """
     function to plot cfd force coefficients results
     """
@@ -100,12 +102,14 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot):
     ax.set_ylabel('lift/cl (N/-)')
     title_sep = ' vs. '
     title = title_sep.join(data_to_plot)
+    out_image_file = os.path.join(image_out_path, title + '.png')
     ax.set_title(title)
     ax.legend()
 
     if time_to_plot != 'all':
         ax.set_xlim(time_to_plot)
 
+    plt.savefig(out_image_file)
     plt.show()
 
     return fig
