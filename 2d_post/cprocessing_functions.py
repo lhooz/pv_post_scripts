@@ -324,8 +324,9 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
                                         'time_' + time_instance + '.png')
 
     for exist_v_noi in exist_vortices_no:
-        ind_vortex_history_file = os.path.join(individual_vortex_folder,
-                                               'vortex_no_' + str(exist_v_noi))
+        ind_vortex_history_file = os.path.join(
+            individual_vortex_folder,
+            'vortex_no_' + str(int(exist_v_noi)).zfill(4))
         # ---------------merging vortices of the same no --------------
         id_vortexi = np.where(marked_vortices_current[:, 0] == exist_v_noi)[0]
 
@@ -357,3 +358,110 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
             field_plot(window, vz_field[0], image_v_noi, ind_v_image_file,
                        'save')
             plt.close()
+
+
+"""functions for reading and plotting individual vortices"""
+
+
+def read_all_vortices(individual_vortex_folder):
+    """read all vortices in vortex folder"""
+    v_names = [
+        f.name for f in os.scandir(individual_vortex_folder) if f.is_file()
+    ]
+
+    vor_list = []
+    vor_array = []
+    for vnamei in v_names:
+        vpathi = os.path.join(individual_vortex_folder, vnamei)
+
+        vor_array.clear()
+        with open(vpathi) as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            line_count = 0
+
+            for row in csv_reader:
+                vor_array.append([
+                    float(row[0]),
+                    float(row[1]),
+                    float(row[2]),
+                    float(row[3])
+                ])
+                line_count += 1
+
+            print(f'Processed {line_count} lines in {vpathi}')
+
+        vor_array_to_append = np.array(vor_array)
+        vor_list.append(vor_array_to_append)
+        # print(vor_array)
+
+    vor_dict = dict(zip(v_names, vor_list))
+    return vor_dict
+
+
+def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
+                             time_to_plot):
+    """plot circulations and locations of vortices"""
+
+    fig1, (ax1, ax2) = plt.subplots(1, 2)
+    ax1.set_xlabel('t (seconds)')
+    ax1.set_ylabel('location_x (m)')
+    ax2.set_xlabel('t (seconds)')
+    ax2.set_ylabel('location_y (m)')
+    title1 = 'location_history_of_vortices'
+    fig1.suptitle(title1)
+
+    fig2, ax = plt.subplots(1, 1)
+    ax.set_xlabel('t (seconds)')
+    ax.set_ylabel('circulation (m*m/second)')
+    title2 = 'circulation_history_of_vortices'
+    fig2.suptitle(title2)
+
+    length_arr = []
+    for vori in vor_dict.values():
+        length_arr.append(-len(vori))
+    ind = sorted(range(len(length_arr)), key=lambda k: length_arr[k])
+    # print(ind)
+    vor_dict = [list(vor_dict.items())[i] for i in ind]
+    vor_dict = dict(vor_dict)
+
+    #----------------------------------------------
+    if vortices_to_plot == 'all':
+        vortices_to_plot = [x + 1 for x in range(len(vor_dict))]
+    elif isinstance(vortices_to_plot, int):
+        v_plot_all = np.array(list(vor_dict.keys())[0:vortices_to_plot - 1])
+        print('\nfirst ' + str(int(vortices_to_plot)) +
+              ' longest last vortices:')
+        vortices_to_plot = []
+        for item in v_plot_all:
+            item_no = int(item.split('_')[-1])
+            vortices_to_plot.append(item_no)
+            print(item)
+
+
+#------------------------------------------------
+    for vortices_to_ploti in vortices_to_plot:
+        v_plot = 'vortex_no_' + str(vortices_to_ploti).zfill(4)
+        locx_label = 'v' + str(vortices_to_ploti).zfill(4) + '_x'
+        locy_label = 'v' + str(vortices_to_ploti).zfill(4) + '_y'
+        circulation_label = 'v' + str(vortices_to_ploti).zfill(
+            4) + '_circulation'
+
+        v_list = vor_dict[v_plot]
+        v_array = np.array(v_list)
+        ax1.plot(v_array[:, 0], v_array[:, 1], label=locx_label)
+        ax2.plot(v_array[:, 0], v_array[:, 2], label=locy_label)
+        ax.plot(v_array[:, 0], v_array[:, 3], label=circulation_label)
+
+    out_image_file1 = os.path.join(image_out_path, title1 + '.png')
+    out_image_file2 = os.path.join(image_out_path, title2 + '.png')
+    ax1.legend()
+    ax2.legend()
+    ax.legend()
+
+    if time_to_plot != 'all':
+        ax1.set_xlim(time_to_plot)
+        ax2.set_xlim(time_to_plot)
+
+    fig1.savefig(out_image_file1)
+    fig2.savefig(out_image_file2)
+    plt.show()

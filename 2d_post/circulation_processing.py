@@ -12,17 +12,18 @@ from cprocessing_functions import (field_plot, vortices_processing,
 
 #--------------input parameters------------
 window = [-6, 4, -4, 4]
-resolution = [500, 400]
+resolution = [1000, 800]
+vortex_no_to_save_as_image = 1 # 0 means not saving any vortex image
+data_time_increment = 2e-2
+#------------------------
+wbound_radius = 0
+#----thresholds are all wrt. maximum (positive and negative)-------
 threshold_q = 0.002
 threshold_vorz = 0.02
 threshold_circulation = 0.02
-wbound_radius = 0
-
-data_time_increment = 2e-2
-v_vanish_dist_factor = 1
-
-vortex_no_to_save_as_image = 16
-
+#--multiply by wing displacement to determine min. dist to separate vortices--
+v_vanish_dist_factor = 0.6
+#---------------------------
 cwd = os.getcwd()
 vorz_folder = os.path.join(cwd, 'vorz_data')
 q_folder = os.path.join(cwd, 'q_data')
