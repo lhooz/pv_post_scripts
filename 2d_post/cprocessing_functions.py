@@ -107,7 +107,7 @@ def threshold_filter(grid_t, threshold, datatype):
         filter_pvorz = (grid_t >= threshold * np.amax(grid_t)) * 1
         filter_nvorz = (grid_t <= -threshold * np.amax(-grid_t)) * 1
 
-        t_filter = filter_pvorz + filter_nvorz
+        t_filter = [filter_pvorz, filter_nvorz]
     elif datatype == 'q':
         filter_q = (grid_t >= threshold * np.amax(grid_t)) * 1
 
@@ -172,16 +172,14 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
 
     t_filter_q = threshold_filter(grid_q, threshold_q, 'q')
     t_filter_vorz = threshold_filter(grid_vz, threshold_vorz, 'vorticity')
-    t_filter = np.multiply(t_filter_q, t_filter_vorz)
+    t_filter_v = np.multiply(t_filter_q, t_filter_vorz[0] + t_filter_vorz[1])
     # t_filter = t_filter_q
     # t_filter = t_filter_vorz
 
-    vorz_filter = np.multiply(g_filter, t_filter)
+    vorz_filter = np.multiply(g_filter, t_filter_v)
 
     grid_vz_filtered = vorz_processing(grid_vz, vorz_filter)
-
     # field_plot(window, grid_vz, grid_vz_filtered)
-    # field_plot(window, grid_vz, vorz_filter)
     #----------------------------------------------------------------
 
     #-----------vortices processing------------------------
@@ -189,42 +187,50 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
     vorz_l = ndimage.label(grid_vz_filtered, structure=s)
     # print(vorz_l[1])
     #-----------locations----------------
-    pixel_locations = ndimage.measurements.center_of_mass(
-        grid_vz_filtered, vorz_l[0], [x for x in range(1, vorz_l[1] + 1)])
-    # print(pixel_locations)
+    pixel_locations_v = ndimage.measurements.center_of_mass(
+        np.absolute(grid_vz_filtered), vorz_l[0],
+        [x for x in range(1, vorz_l[1] + 1)])
+    # print(pixel_locations_v)
+    # print(window[0])
     dx = (window[1] - window[0]) / resolution[0]
     dy = (window[3] - window[2]) / resolution[1]
     vorz_locations = []
-    for loci in pixel_locations:
+    for loci in pixel_locations_v:
         v_locix = window[0] + loci[0] * dx
         v_lociy = window[2] + loci[1] * dy
         vorz_locations.append([v_locix, v_lociy])
 
     vorz_locations = np.array(vorz_locations)
+    # print(pvorz_locations)
     #-----------circulations----------------
-    pixel_sum = ndimage.sum(grid_vz_filtered, vorz_l[0],
-                            [x for x in range(1, vorz_l[1] + 1)])
-    circulations = []
-    for i in range(len(pixel_sum)):
-        circulations.append([pixel_sum[i] * dx * dy, i + 1])
-    circulations = np.array(circulations)
+    pixel_sum_v = ndimage.sum(grid_vz_filtered, vorz_l[0],
+                              [x for x in range(1, vorz_l[1] + 1)])
+    circulations_v = []
+    for i in range(len(pixel_sum_v)):
+        circulations_v.append([pixel_sum_v[i] * dx * dy, i + 1])
+    circulations_v = np.array(circulations_v)
 
-    vortices = np.array(
+    pvortices = np.array(
         [[loc[0], loc[1], vz[0], vz[1]]
-         for loc, vz in zip(vorz_locations, circulations)
-         if vz[0] >= threshold_circulation * np.amax(circulations[:, 0])
-         or vz[0] <= threshold_circulation * -np.amax(-circulations[:, 0])])
-
+         for loc, vz in zip(vorz_locations, circulations_v)
+         if vz[0] >= threshold_circulation * np.amax(circulations_v[:, 0])])
+    nvortices = np.array(
+        [[loc[0], loc[1], vz[0], vz[1]]
+         for loc, vz in zip(vorz_locations, circulations_v)
+         if vz[0] <= threshold_circulation * -np.amax(-circulations_v[:, 0])])
+    # print(pvortices)
     #-------------------------------------------------------------------------
     #-----organizing outputs------------
     circulation_filter = vorz_filter * 0
 
-    for vortexi in vortices:
-        circulation_filter += (vorz_l[0] == vortexi[3]) * 1
+    for pvortexi in pvortices:
+        circulation_filter += (vorz_l[0] == pvortexi[3]) * 1
+    for nvortexi in nvortices:
+        circulation_filter += (vorz_l[0] == nvortexi[3]) * 1
 
     vz_flags = vorz_processing(vorz_l[0], circulation_filter)
 
-    vz_circulations = vortices
+    vz_circulations = [pvortices, nvortices]
     image_vortices = circulation_filter
     vz_field = [grid_vz, vz_flags]
     #-------------------------------------------------------------
@@ -264,7 +270,7 @@ def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
 
 def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
                       v_vanish_dist_factor, marked_vortices_history,
-                      vortices_current):
+                      vortices_current, vortices_type):
     """
     tracking algorithm for individual vortex
     """
@@ -273,12 +279,12 @@ def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
     if len(marked_vortices_history) == 0:
         vortices_0 = []
         for i in range(no_of_vortices_current):
+            no_of_vortices += 1
             vortexi = [
-                i + 1, 0, vortices_current[i][0], vortices_current[i][1], 0,
-                vortices_current[i][3]
+                no_of_vortices, 0, vortices_current[i][0],
+                vortices_current[i][1], 0, vortices_current[i][3]
             ]
             vortices_0.append(vortexi)
-            no_of_vortices += 1
 
         marked_vortices_history.append(np.array(vortices_0))
         v_vanish_dist = 1
@@ -296,22 +302,32 @@ def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
         no_of_vortices, timei, v_vanish_dist, vortices_last, vortices_current)
 
     marked_vortices_history.append(marked_vortices_current)
-    print(f'No of vortices in current field: {no_of_vortices_current}')
-    print(f'Total No of vortices in history: {no_of_vortices} \n')
+    if vortices_type == 'positive':
+        print(
+            f'No of positive vortices in current field: {no_of_vortices_current}'
+        )
+    elif vortices_type == 'negative':
+
+        print(
+            f'No of negative vortices in current field: {no_of_vortices_current}'
+        )
+    elif vortices_type == 'all':
+
+        print(f'No of vortices in current field: {no_of_vortices_current}')
 
     return no_of_vortices, marked_vortices_history
 
 
 def write_individual_vortex(window, time_instance, marked_vortices_history,
-                            vz_field, individual_vortex_folder,
-                            v_no_save_image):
+                            org_vorz_field, vz_field_flags,
+                            individual_vortex_folder, v_no_save_image):
     """
     write out individual vortex history data files
     """
 
-    vz_field_flags = vz_field[1]
     marked_vortices_current = marked_vortices_history[-1]
     exist_vortices_no = np.unique(marked_vortices_current[:, 0])
+    # print(exist_vortices_no)
     if not v_no_save_image == 0:
         ind_v_image_folder = os.path.join(
             individual_vortex_folder,
@@ -329,20 +345,25 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
             'vortex_no_' + str(int(exist_v_noi)).zfill(4))
         # ---------------merging vortices of the same no --------------
         id_vortexi = np.where(marked_vortices_current[:, 0] == exist_v_noi)[0]
+        # print(id_vortexi)
 
         circulation_v_noi = 0
-        weighted_x = 0
-        weighted_y = 0
+        weighted_x_sum = 0
+        weighted_y_sum = 0
         image_v_noi = vz_field_flags * 0
         for id_for_v_noi in id_vortexi:
             circulation_v_noi += marked_vortices_current[id_for_v_noi][4]
-            weighted_x += marked_vortices_current[id_for_v_noi][2]
-            weighted_y += marked_vortices_current[id_for_v_noi][3]
+            # print(circulation_v_noi)
+            weighted_x_sum += circulation_v_noi * marked_vortices_current[
+                id_for_v_noi][2]
+            # print(weighted_x)
+            weighted_y_sum += circulation_v_noi * marked_vortices_current[
+                id_for_v_noi][3]
             image_v_noi += (vz_field_flags ==
                             marked_vortices_current[id_for_v_noi][-1]) * 1
 
-        merged_x = weighted_x / circulation_v_noi
-        merged_y = weighted_y / circulation_v_noi
+        merged_x = weighted_x_sum / circulation_v_noi
+        merged_y = weighted_y_sum / circulation_v_noi
 
         ind_vortex_historyi = [
             str(marked_vortices_current[0][1]),
@@ -355,7 +376,7 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
             f.write("%s\n" % ', '.join(ind_vortex_historyi))
 
         if v_no_save_image == exist_v_noi:
-            field_plot(window, vz_field[0], image_v_noi, ind_v_image_file,
+            field_plot(window, org_vorz_field, image_v_noi, ind_v_image_file,
                        'save')
             plt.close()
 
@@ -409,12 +430,14 @@ def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
     ax2.set_ylabel('location_y (m)')
     title1 = 'location_history_of_vortices'
     fig1.suptitle(title1)
+    fig1.set_size_inches(20, 6, forward=True)
 
     fig2, ax = plt.subplots(1, 1)
     ax.set_xlabel('t (seconds)')
     ax.set_ylabel('circulation (m*m/second)')
     title2 = 'circulation_history_of_vortices'
     fig2.suptitle(title2)
+    fig2.set_size_inches(14, 6, forward=True)
 
     length_arr = []
     for vori in vor_dict.values():
@@ -448,9 +471,30 @@ def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
 
         v_list = vor_dict[v_plot]
         v_array = np.array(v_list)
-        ax1.plot(v_array[:, 0], v_array[:, 1], label=locx_label)
-        ax2.plot(v_array[:, 0], v_array[:, 2], label=locy_label)
-        ax.plot(v_array[:, 0], v_array[:, 3], label=circulation_label)
+        ax1.plot(v_array[:, 0],
+                 v_array[:, 1],
+                 marker='o',
+                 linestyle='dashed',
+                 linewidth=0.5,
+                 markersize=4,
+                 markerfacecolor='white',
+                 label=locx_label)
+        ax2.plot(v_array[:, 0],
+                 v_array[:, 2],
+                 marker='o',
+                 linestyle='dashed',
+                 linewidth=0.5,
+                 markersize=4,
+                 markerfacecolor='white',
+                 label=locy_label)
+        ax.plot(v_array[:, 0],
+                v_array[:, 3],
+                marker='o',
+                linestyle='dashed',
+                linewidth=0.5,
+                markersize=4,
+                markerfacecolor='white',
+                label=circulation_label)
 
     out_image_file1 = os.path.join(image_out_path, title1 + '.png')
     out_image_file2 = os.path.join(image_out_path, title2 + '.png')
@@ -461,6 +505,7 @@ def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
     if time_to_plot != 'all':
         ax1.set_xlim(time_to_plot)
         ax2.set_xlim(time_to_plot)
+        ax.set_xlim(time_to_plot)
 
     fig1.savefig(out_image_file1)
     fig2.savefig(out_image_file2)

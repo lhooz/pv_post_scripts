@@ -13,16 +13,16 @@ from cprocessing_functions import (field_plot, vortices_processing,
 #--------------input parameters------------
 window = [-6, 4, -4, 4]
 resolution = [1000, 800]
-vortex_no_to_save_as_image = 1 # 0 means not saving any vortex image
+vortex_no_to_save_as_image = 11  # 0 means not saving any vortex image
 data_time_increment = 2e-2
 #------------------------
 wbound_radius = 0
 #----thresholds are all wrt. maximum (positive and negative)-------
-threshold_q = 0.002
-threshold_vorz = 0.02
-threshold_circulation = 0.02
-#--multiply by wing displacement to determine min. dist to separate vortices--
-v_vanish_dist_factor = 0.6
+threshold_q = 5e-4
+threshold_vorz = 1e-2
+threshold_circulation = 1e-2
+#--multiply by wing displacement to obtain max. traveled dist in one t_step for vortices, vortices are considered as the same one if its traveled dist is less than this value--
+v_vanish_dist_factor = 1
 #---------------------------
 cwd = os.getcwd()
 vorz_folder = os.path.join(cwd, 'vorz_data')
@@ -41,9 +41,11 @@ os.mkdir(oimage_folder)
 #----------------------------------------
 wgeo_boundx_history = []
 no_of_vortices = 0
-marked_vortices_history = []
+marked_pvortices_history = []
+marked_nvortices_history = []
+# marked_vortices_history = []
 for ti in range(1, len(os.listdir(q_folder))):
-    # for ti in range(1, 10):
+    # for ti in range(24, 25):
     time_instance = str(ti).zfill(4)
     #--------setting up file dirs-----------
     vorz_data_file = os.path.join(vorz_folder,
@@ -63,17 +65,37 @@ for ti in range(1, len(os.listdir(q_folder))):
     #----------vortices identification by field filtering----------
     vz_circulations, image_vortices, vz_field, wgeo_bound_xi = vortices_processing(
         files_dir, res_parameters, threshold_parameters)
+    pvortices = vz_circulations[0]
+    nvortices = vz_circulations[1]
+    vortices = np.append(pvortices, nvortices, axis=0)
+    # print(vortices)
+    org_vorz_field = vz_field[0]
+    vz_field_flags = vz_field[1]
+    # -------------plot all vortices-----------
+    field_plot(window, org_vorz_field, vz_field_flags, oimage_file, 'save')
+    plt.close()
     # ----------------------------------------------
     wgeo_boundx_history.append(wgeo_bound_xi)
     # -------------vortices tracking/marking-------
     timei = ti * data_time_increment
-    no_of_vortices, marked_vortices_history = vortices_tracking(
+    no_of_vortices, marked_pvortices_history = vortices_tracking(
         no_of_vortices, timei, wgeo_boundx_history, v_vanish_dist_factor,
-        marked_vortices_history, vz_circulations)
-    # -------------plot all vortices-----------
-    field_plot(window, vz_field[0], vz_field[1], oimage_file, 'save')
-    plt.close()
+        marked_pvortices_history, pvortices, 'positive')
+    no_of_vortices, marked_nvortices_history = vortices_tracking(
+        no_of_vortices, timei, wgeo_boundx_history, v_vanish_dist_factor,
+        marked_nvortices_history, nvortices, 'negative')
+    # print(marked_pvortices_history)
+    #-----tracking positive and negative vortices at the same time---
+    # no_of_vortices, marked_vortices_history = vortices_tracking(
+    # no_of_vortices, timei, wgeo_boundx_history, v_vanish_dist_factor,
+    # marked_vortices_history, vortices, 'all')
+    print(f'Total No of vortices in history: {no_of_vortices} \n')
     #-------------write history of every individual vortex----------
-    write_individual_vortex(window, time_instance, marked_vortices_history,
-                            vz_field, individual_vortex_folder,
+    write_individual_vortex(window, time_instance, marked_pvortices_history,
+                            org_vorz_field, vz_field_flags,
+                            individual_vortex_folder,
+                            vortex_no_to_save_as_image)
+    write_individual_vortex(window, time_instance, marked_nvortices_history,
+                            org_vorz_field, vz_field_flags,
+                            individual_vortex_folder,
                             vortex_no_to_save_as_image)

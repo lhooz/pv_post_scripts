@@ -11,10 +11,10 @@ from cprocessing_functions import read_all_vortices, plot_v_circulations_locs
 #--list: plot particular vortex in the list--
 #--------------------------------------------
 # vortices_to_plot = 'all'
-vortices_to_plot = 6
+vortices_to_plot = 10
 # vortices_to_plot = [61, 165]
-time_to_plot = 'all'
-# time_to_plot = [0, 2]
+# time_to_plot = 'all'
+time_to_plot = [0, 1]
 #------------------------------------------
 cwd = os.getcwd()
 individual_vortex_folder = os.path.join(cwd, 'individual_vortex_history')
