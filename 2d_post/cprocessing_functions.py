@@ -172,67 +172,89 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
 
     t_filter_q = threshold_filter(grid_q, threshold_q, 'q')
     t_filter_vorz = threshold_filter(grid_vz, threshold_vorz, 'vorticity')
-    t_filter_v = np.multiply(t_filter_q, t_filter_vorz[0] + t_filter_vorz[1])
+    t_filter_pv = np.multiply(t_filter_q, t_filter_vorz[0])
+    t_filter_nv = np.multiply(t_filter_q, t_filter_vorz[1])
     # t_filter = t_filter_q
     # t_filter = t_filter_vorz
 
-    vorz_filter = np.multiply(g_filter, t_filter_v)
+    pvorz_filter = np.multiply(g_filter, t_filter_pv)
+    nvorz_filter = np.multiply(g_filter, t_filter_nv)
 
-    grid_vz_filtered = vorz_processing(grid_vz, vorz_filter)
+    grid_pvz_filtered = vorz_processing(grid_vz, pvorz_filter)
+    grid_nvz_filtered = vorz_processing(grid_vz, nvorz_filter)
+
     # field_plot(window, grid_vz, grid_vz_filtered)
     #----------------------------------------------------------------
 
     #-----------vortices processing------------------------
     s = ndimage.generate_binary_structure(2, 2)
-    vorz_l = ndimage.label(grid_vz_filtered, structure=s)
+    pvorz_l = ndimage.label(grid_pvz_filtered, structure=s)
+    nvorz_l = ndimage.label(grid_nvz_filtered, structure=s)
     # print(vorz_l[1])
     #-----------locations----------------
-    pixel_locations_v = ndimage.measurements.center_of_mass(
-        np.absolute(grid_vz_filtered), vorz_l[0],
-        [x for x in range(1, vorz_l[1] + 1)])
-    # print(pixel_locations_v)
+    pixel_locations_pv = ndimage.measurements.center_of_mass(
+        np.absolute(grid_pvz_filtered), pvorz_l[0],
+        [x for x in range(1, pvorz_l[1] + 1)])
+    pixel_locations_nv = ndimage.measurements.center_of_mass(
+        np.absolute(grid_nvz_filtered), nvorz_l[0],
+        [x for x in range(1, nvorz_l[1] + 1)])
+    # print(pixel_locations_pv)
     # print(window[0])
     dx = (window[1] - window[0]) / resolution[0]
     dy = (window[3] - window[2]) / resolution[1]
-    vorz_locations = []
-    for loci in pixel_locations_v:
-        v_locix = window[0] + loci[0] * dx
-        v_lociy = window[2] + loci[1] * dy
-        vorz_locations.append([v_locix, v_lociy])
+    pvorz_locations = []
+    nvorz_locations = []
+    for ploci in pixel_locations_pv:
+        pv_locix = window[0] + ploci[0] * dx
+        pv_lociy = window[2] + ploci[1] * dy
+        pvorz_locations.append([pv_locix, pv_lociy])
+    for nloci in pixel_locations_nv:
+        nv_locix = window[0] + nloci[0] * dx
+        nv_lociy = window[2] + nloci[1] * dy
+        nvorz_locations.append([nv_locix, nv_lociy])
 
-    vorz_locations = np.array(vorz_locations)
+    pvorz_locations = np.array(pvorz_locations)
+    nvorz_locations = np.array(nvorz_locations)
     # print(pvorz_locations)
     #-----------circulations----------------
-    pixel_sum_v = ndimage.sum(grid_vz_filtered, vorz_l[0],
-                              [x for x in range(1, vorz_l[1] + 1)])
-    circulations_v = []
-    for i in range(len(pixel_sum_v)):
-        circulations_v.append([pixel_sum_v[i] * dx * dy, i + 1])
-    circulations_v = np.array(circulations_v)
+    pixel_sum_pv = ndimage.sum(grid_pvz_filtered, pvorz_l[0],
+                               [x for x in range(1, pvorz_l[1] + 1)])
+    pixel_sum_nv = ndimage.sum(grid_nvz_filtered, nvorz_l[0],
+                               [x for x in range(1, nvorz_l[1] + 1)])
+    circulations_pv = []
+    circulations_nv = []
+    for i in range(len(pixel_sum_pv)):
+        circulations_pv.append([pixel_sum_pv[i] * dx * dy, i + 1])
+    circulations_pv = np.array(circulations_pv)
+    for i in range(len(pixel_sum_nv)):
+        circulations_nv.append([pixel_sum_nv[i] * dx * dy, i + 1])
+    circulations_nv = np.array(circulations_nv)
 
     pvortices = np.array(
         [[loc[0], loc[1], vz[0], vz[1]]
-         for loc, vz in zip(vorz_locations, circulations_v)
-         if vz[0] >= threshold_circulation * np.amax(circulations_v[:, 0])])
+         for loc, vz in zip(pvorz_locations, circulations_pv)
+         if vz[0] >= threshold_circulation * np.amax(circulations_pv[:, 0])])
     nvortices = np.array(
         [[loc[0], loc[1], vz[0], vz[1]]
-         for loc, vz in zip(vorz_locations, circulations_v)
-         if vz[0] <= threshold_circulation * -np.amax(-circulations_v[:, 0])])
+         for loc, vz in zip(nvorz_locations, circulations_nv)
+         if vz[0] <= threshold_circulation * -np.amax(-circulations_nv[:, 0])])
     # print(pvortices)
     #-------------------------------------------------------------------------
     #-----organizing outputs------------
-    circulation_filter = vorz_filter * 0
+    pcirculation_filter = pvorz_filter * 0
+    ncirculation_filter = nvorz_filter * 0
 
     for pvortexi in pvortices:
-        circulation_filter += (vorz_l[0] == pvortexi[3]) * 1
+        pcirculation_filter += (pvorz_l[0] == pvortexi[3]) * 1
     for nvortexi in nvortices:
-        circulation_filter += (vorz_l[0] == nvortexi[3]) * 1
+        ncirculation_filter += (nvorz_l[0] == nvortexi[3]) * 1
 
-    vz_flags = vorz_processing(vorz_l[0], circulation_filter)
+    pvz_flags = vorz_processing(pvorz_l[0], pcirculation_filter)
+    nvz_flags = vorz_processing(nvorz_l[0], ncirculation_filter)
 
     vz_circulations = [pvortices, nvortices]
-    image_vortices = circulation_filter
-    vz_field = [grid_vz, vz_flags]
+    image_vortices = pvz_flags + nvz_flags
+    vz_field = [grid_vz, pvz_flags, nvz_flags]
     #-------------------------------------------------------------
 
     return vz_circulations, image_vortices, vz_field, wgeo_bound_x
