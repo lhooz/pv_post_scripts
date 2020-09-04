@@ -328,16 +328,18 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
     marked_vortices_current = marked_vortices_history[-1]
     exist_vortices_no = np.unique(marked_vortices_current[:, 0])
     # print(exist_vortices_no)
-    if not v_no_save_image == 0:
-        ind_v_image_folder = os.path.join(
+    ind_v_image_file = []
+    for v_no_save_imagei in v_no_save_image:
+        ind_v_image_folderi = os.path.join(
             individual_vortex_folder,
-            'image_vortex_no_' + str(v_no_save_image))
+            'image_vortex_no_' + str(v_no_save_imagei))
 
-        if not os.path.exists(ind_v_image_folder):
-            os.mkdir(ind_v_image_folder)
+        if not os.path.exists(ind_v_image_folderi):
+            os.mkdir(ind_v_image_folderi)
 
-        ind_v_image_file = os.path.join(ind_v_image_folder,
-                                        'time_' + time_instance + '.png')
+        ind_v_image_filei = os.path.join(ind_v_image_folderi,
+                                         'time_' + time_instance + '.png')
+        ind_v_image_file.append(ind_v_image_filei)
 
     for exist_v_noi in exist_vortices_no:
         ind_vortex_history_file = os.path.join(
@@ -375,9 +377,10 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
         with open(ind_vortex_history_file, 'a') as f:
             f.write("%s\n" % ', '.join(ind_vortex_historyi))
 
-        if v_no_save_image == exist_v_noi:
-            field_plot(window, org_vorz_field, image_v_noi, ind_v_image_file,
-                       'save')
+        for i in range(len(v_no_save_image)):
+            if exist_v_noi == v_no_save_image[i]:
+                field_plot(window, org_vorz_field, image_v_noi,
+                           ind_v_image_file[i], 'save')
             plt.close()
 
 

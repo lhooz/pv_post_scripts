@@ -13,13 +13,13 @@ from cprocessing_functions import (field_plot, vortices_processing,
 #--------------input parameters------------
 window = [-6, 4, -4, 4]
 resolution = [1000, 800]
-vortex_no_to_save_as_image = 11  # 0 means not saving any vortex image
+vortex_no_to_save_as_image = [1, 12]  # enpty means not saving any vortex image
 data_time_increment = 2e-2
 #------------------------
 wbound_radius = 0
 #----thresholds are all wrt. maximum (positive and negative)-------
 threshold_q = 5e-4
-threshold_vorz = 1e-2
+threshold_vorz = 1e-3
 threshold_circulation = 1e-2
 #--multiply by wing displacement to obtain max. traveled dist in one t_step for vortices, vortices are considered as the same one if its traveled dist is less than this value--
 v_vanish_dist_factor = 1

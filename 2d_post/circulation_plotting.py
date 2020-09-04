@@ -11,8 +11,9 @@ from cprocessing_functions import read_all_vortices, plot_v_circulations_locs
 #--list: plot particular vortex in the list--
 #--------------------------------------------
 # vortices_to_plot = 'all'
-vortices_to_plot = 10
-# vortices_to_plot = [61, 165]
+# vortices_to_plot = 20
+vortices_to_plot = [3, 12, 30]
+# vortices_to_plot = [x for x in range(20, 37)]
 # time_to_plot = 'all'
 time_to_plot = [0, 1]
 #------------------------------------------
