@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
 from scipy import ndimage
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 
 def read_sfield(field_data_file):
@@ -366,6 +367,7 @@ def write_individual_vortex(window, time_instance, marked_vortices_history,
 
         merged_x = weighted_x_sum / circulation_v_noi
         merged_y = weighted_y_sum / circulation_v_noi
+        #---------------------------------------------------------------
 
         ind_vortex_historyi = [
             str(marked_vortices_current[0][1]),
@@ -422,25 +424,77 @@ def read_all_vortices(individual_vortex_folder):
     return vor_dict
 
 
-def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
-                             time_to_plot):
+def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
+                   items_to_plot):
     """plot circulations and locations of vortices"""
 
-    fig1, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.set_xlabel('t (seconds)')
-    ax1.set_ylabel('location_x (m)')
-    ax2.set_xlabel('t (seconds)')
-    ax2.set_ylabel('location_y (m)')
-    title1 = 'location_history_of_vortices'
-    fig1.suptitle(title1)
-    fig1.set_size_inches(20, 6, forward=True)
+    cwd = os.getcwd()
+    plt.rcParams.update({
+        # "text.usetex": True,
+        'mathtext.fontset': 'stix',
+        'font.family': 'STIXGeneral',
+        'font.size': 14,
+        'figure.figsize': (10, 6),
+        'lines.linewidth': 1,
+        'lines.markersize': 4,
+        'lines.markerfacecolor': 'white',
+        'figure.dpi': 100,
+    })
 
-    fig2, ax = plt.subplots(1, 1)
-    ax.set_xlabel('t (seconds)')
-    ax.set_ylabel('circulation (m*m/second)')
-    title2 = 'circulation_history_of_vortices'
-    fig2.suptitle(title2)
-    fig2.set_size_inches(14, 6, forward=True)
+    if 'vortices' in items_to_plot:
+        fig1, ax1 = plt.subplots(1, 1)
+        ax1.set_xlabel('t (s)')
+        ax1.set_ylabel('x (m)')
+        title1 = 'x_location_history_of_vortices'
+        fig1.suptitle(title1)
+
+        fig2, ax2 = plt.subplots(1, 1)
+        ax2.set_xlabel('t (s)')
+        ax2.set_ylabel('y (m)')
+        title2 = 'y_location_history_of_vortices'
+        fig2.suptitle(title2)
+
+        fig3, ax3 = plt.subplots(1, 1)
+        ax3.set_xlabel('t (s)')
+        ax3.set_ylabel(r'$\Gamma\/(m^2/s)$')
+        title3 = 'circulation_history_of_vortices'
+        fig3.suptitle(title3)
+
+    if 'lift' in items_to_plot:
+        fig4, ax4 = plt.subplots(1, 1)
+        ax4.set_xlabel('t (s)')
+        ax4.set_ylabel('cl')
+        title4 = 'lift_coeffs_of_vortices'
+        fig4.suptitle(title4)
+
+        fig5, ax5 = plt.subplots(1, 1)
+        ax5.set_xlabel('t (s)')
+        ax5.set_ylabel('cl')
+        title5 = 'total_lift_coeffs'
+        fig5.suptitle(title5)
+
+        total_lift_coeffs = np.zeros([1, 2])
+        total_lift_coeffs_file = os.path.join(cwd, 'summed_cl')
+        with open(total_lift_coeffs_file, 'w') as f:
+            f.write("%s\n" % ', '.join([str(x) for x in total_lift_coeffs[0]]))
+
+    if 'drag' in items_to_plot:
+        fig6, ax6 = plt.subplots(1, 1)
+        ax6.set_xlabel('t (s)')
+        ax6.set_ylabel('cd')
+        title6 = 'drag_coeffs_of_vortices'
+        fig6.suptitle(title6)
+
+        fig7, ax7 = plt.subplots(1, 1)
+        ax7.set_xlabel('t (s)')
+        ax7.set_ylabel('cd')
+        title7 = 'total_drag_coeffs'
+        fig7.suptitle(title7)
+
+        total_drag_coeffs = np.zeros([1, 2])
+        total_drag_coeffs_file = os.path.join(cwd, 'summed_cd')
+        with open(total_drag_coeffs_file, 'w') as f:
+            f.write("%s\n" % ', '.join([str(x) for x in total_drag_coeffs[0]]))
 
     length_arr = []
     for vori in vor_dict.values():
@@ -452,9 +506,11 @@ def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
 
     #----------------------------------------------
     if vortices_to_plot == 'all':
-        vortices_to_plot = [x + 1 for x in range(len(vor_dict))]
+        vorid = np.array(list(vor_dict.keys()))
+        vortices_to_plot = [int(x.split('_')[-1]) for x in vorid]
+        # print(vortices_to_plot)
     elif isinstance(vortices_to_plot, int):
-        v_plot_all = np.array(list(vor_dict.keys())[0:vortices_to_plot - 1])
+        v_plot_all = np.array(list(vor_dict.keys())[0:vortices_to_plot])
         print('\nfirst ' + str(int(vortices_to_plot)) +
               ' longest last vortices:')
         vortices_to_plot = []
@@ -470,46 +526,185 @@ def plot_v_circulations_locs(vor_dict, image_out_path, vortices_to_plot,
         locx_label = 'v' + str(vortices_to_ploti).zfill(4) + '_x'
         locy_label = 'v' + str(vortices_to_ploti).zfill(4) + '_y'
         circulation_label = 'v' + str(vortices_to_ploti).zfill(
-            4) + '_circulation'
+            4) + r'_$\Gamma$'
+        cl_label = 'v' + str(vortices_to_ploti).zfill(4) + '_cl'
+        cd_label = 'v' + str(vortices_to_ploti).zfill(4) + '_cd'
+        cl_total_label = 'cl'
+        cd_total_label = 'cd'
 
         v_list = vor_dict[v_plot]
         v_array = np.array(v_list)
-        ax1.plot(v_array[:, 0],
-                 v_array[:, 1],
-                 marker='o',
-                 linestyle='dashed',
-                 linewidth=0.5,
-                 markersize=4,
-                 markerfacecolor='white',
-                 label=locx_label)
-        ax2.plot(v_array[:, 0],
-                 v_array[:, 2],
-                 marker='o',
-                 linestyle='dashed',
-                 linewidth=0.5,
-                 markersize=4,
-                 markerfacecolor='white',
-                 label=locy_label)
-        ax.plot(v_array[:, 0],
-                v_array[:, 3],
-                marker='o',
-                linestyle='dashed',
-                linewidth=0.5,
-                markersize=4,
-                markerfacecolor='white',
-                label=circulation_label)
+        if 'vortices' in items_to_plot:
+            ax1.plot(v_array[:, 0],
+                     v_array[:, 1],
+                     marker='o',
+                     linestyle='dashed',
+                     label=locx_label)
+            ax2.plot(v_array[:, 0],
+                     v_array[:, 2],
+                     marker='o',
+                     linestyle='dashed',
+                     label=locy_label)
+            ax3.plot(v_array[:, 0],
+                     v_array[:, 3],
+                     marker='o',
+                     linestyle='dashed',
+                     label=circulation_label)
 
-    out_image_file1 = os.path.join(image_out_path, title1 + '.png')
-    out_image_file2 = os.path.join(image_out_path, title2 + '.png')
-    ax1.legend()
-    ax2.legend()
-    ax.legend()
+        if 'lift' in items_to_plot:
+            ax4.plot(v_array[:, 0],
+                     v_array[:, 4],
+                     marker='o',
+                     linestyle='dashed',
+                     label=cl_label)
+
+            for i in range(len(v_array[:, 0])):
+                ti = v_array[i, 0]
+                if ti in total_lift_coeffs[:, 0]:
+                    tind = np.argwhere(total_lift_coeffs[:, 0] == ti)[0]
+                    # print(tind)
+                    total_lift_coeffs[tind, 1] += v_array[i, 4]
+                else:
+                    new_time_array = np.array([[v_array[i, 0], v_array[i, 4]]])
+                    total_lift_coeffs = np.append(total_lift_coeffs,
+                                                  new_time_array,
+                                                  axis=0)
+            time_arr = total_lift_coeffs[:, 0]
+            ind = sorted(range(len(time_arr)), key=lambda k: time_arr[k])
+            total_lift_coeffs = np.array([total_lift_coeffs[i] for i in ind])
+
+        if 'drag' in items_to_plot:
+            ax6.plot(v_array[:, 0],
+                     v_array[:, 5],
+                     marker='o',
+                     linestyle='dashed',
+                     label=cd_label)
+
+            for i in range(len(v_array[:, 0])):
+                ti = v_array[i, 0]
+                if ti in total_drag_coeffs[:, 0]:
+                    tind = np.argwhere(total_drag_coeffs[:, 0] == ti)[0]
+                    total_drag_coeffs[tind, 1] += v_array[i, 5]
+                else:
+                    new_time_array = np.array([[v_array[i, 0], v_array[i, 5]]])
+                    total_drag_coeffs = np.append(total_drag_coeffs,
+                                                  new_time_array,
+                                                  axis=0)
+            time_arr = total_drag_coeffs[:, 0]
+            ind = sorted(range(len(time_arr)), key=lambda k: time_arr[k])
+            total_drag_coeffs = np.array([total_drag_coeffs[i] for i in ind])
+
+    if 'lift' in items_to_plot:
+        # print(total_lift_coeffs)
+        ax5.plot(total_lift_coeffs[:, 0],
+                 total_lift_coeffs[:, 1],
+                 marker='o',
+                 linestyle='dashed',
+                 label=cl_total_label)
+
+        for line in total_lift_coeffs[1:, :]:
+            with open(total_lift_coeffs_file, 'a') as f:
+                f.write("%s\n" % ', '.join([str(x) for x in line]))
+
+    if 'drag' in items_to_plot:
+        ax7.plot(total_drag_coeffs[:, 0],
+                 total_drag_coeffs[:, 1],
+                 marker='o',
+                 linestyle='dashed',
+                 label=cd_total_label)
+
+        for line in total_drag_coeffs[1:, :]:
+            with open(total_drag_coeffs_file, 'a') as f:
+                f.write("%s\n" % ', '.join([str(x) for x in line]))
+
+    if 'vortices' in items_to_plot:
+        ax1.legend()
+        ax2.legend()
+        ax3.legend()
+        out_image_file1 = os.path.join(image_out_path, title1 + '.png')
+        out_image_file2 = os.path.join(image_out_path, title2 + '.png')
+        out_image_file3 = os.path.join(image_out_path, title3 + '.png')
+        fig1.savefig(out_image_file1)
+        fig2.savefig(out_image_file2)
+        fig3.savefig(out_image_file3)
+
+    if 'lift' in items_to_plot:
+        ax4.legend()
+        ax5.legend()
+        out_image_file4 = os.path.join(image_out_path, title4 + '.png')
+        out_image_file5 = os.path.join(image_out_path, title5 + '.png')
+        fig4.savefig(out_image_file4)
+        fig5.savefig(out_image_file5)
+
+    if 'drag' in items_to_plot:
+        ax6.legend()
+        ax7.legend()
+        out_image_file6 = os.path.join(image_out_path, title6 + '.png')
+        out_image_file7 = os.path.join(image_out_path, title7 + '.png')
+        fig6.savefig(out_image_file6)
+        fig7.savefig(out_image_file7)
 
     if time_to_plot != 'all':
-        ax1.set_xlim(time_to_plot)
-        ax2.set_xlim(time_to_plot)
-        ax.set_xlim(time_to_plot)
+        plt.xlim(time_to_plot)
 
-    fig1.savefig(out_image_file1)
-    fig2.savefig(out_image_file2)
     plt.show()
+
+
+def impulse_cf_processing(vor_dict, ref_constant, processed_vortices_folder,
+                          v_length_lower_limit):
+    """
+    function for calculating forces using vortex impulse method
+    """
+    vorid = np.array(list(vor_dict.keys()))
+    vor_history = np.array(list(vor_dict.values()))
+    # print(vor_history)
+
+    new_vorid = []
+    new_vor_history = []
+    for i in range(len(vor_history)):
+        voridi = vorid[i]
+        vori = vor_history[i]
+        processed_vortices_filei = os.path.join(processed_vortices_folder,
+                                                voridi)
+        if len(vori) >= v_length_lower_limit:
+            time = vori[:, 0]
+            x_moment = np.multiply(vori[:, 1], vori[:, 3])
+            y_moment = np.multiply(vori[:, 2], vori[:, 3])
+
+            xm_spl = InterpolatedUnivariateSpline(time, x_moment)
+            ym_spl = InterpolatedUnivariateSpline(time, y_moment)
+            xm_res = xm_spl.get_residual()
+            ym_res = ym_spl.get_residual()
+            print(voridi +
+                  f' x_moment spline interpolation residual: {xm_res}')
+            print(voridi +
+                  f' y_moment spline interpolation residual: {ym_res}')
+
+            clift = []
+            cdrag = []
+            for ti in time:
+                cli = xm_spl.derivatives(ti)[1] / ref_constant
+                cdi = ym_spl.derivatives(ti)[1] / ref_constant
+                clift.append([cli])
+                cdrag.append([cdi])
+            clift = np.array(clift)
+            cdrag = np.array(cdrag)
+            # print(vori)
+            # print(clift)
+
+            new_vorid.append(voridi)
+
+            new_vori = np.append(vori, clift, axis=1)
+            new_vori = np.append(new_vori, cdrag, axis=1)
+            new_vor_history.append(new_vori)
+
+            for new_vori_line in new_vori:
+                processed_vortex_historyi = [str(x) for x in new_vori_line]
+                with open(processed_vortices_filei, 'a') as f:
+                    f.write("%s\n" % ', '.join(processed_vortex_historyi))
+
+    new_vorid = np.array(new_vorid)
+    new_vor_history = np.array(new_vor_history)
+    vor_cf_dict = dict(zip(new_vorid, new_vor_history))
+
+    return vor_cf_dict
