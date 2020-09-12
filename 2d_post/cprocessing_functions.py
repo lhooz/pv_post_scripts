@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
 from scipy import ndimage
-from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.interpolate import UnivariateSpline
 
 
 def read_sfield(field_data_file):
@@ -62,8 +62,9 @@ def read_wgeo(wgeo_data_file):
     wgeo_array = np.vstack((x, y))
 
     wgeo_array = np.transpose(wgeo_array)
+    w_centroid = np.array([cx, cy])
 
-    return wgeo_array
+    return wgeo_array, w_centroid
 
 
 def grid_vorz(window, resolution, vor_array):
@@ -105,12 +106,12 @@ def geometry_filter(grid_x, grid_y, wgeo_array, wbound_radius):
 def threshold_filter(grid_t, threshold, datatype):
     """threshold filter for vorticity or q"""
     if datatype == 'vorticity':
-        filter_pvorz = (grid_t >= threshold * np.amax(grid_t)) * 1
-        filter_nvorz = (grid_t <= -threshold * np.amax(-grid_t)) * 1
+        filter_pvorz = (grid_t >= threshold) * 1
+        filter_nvorz = (grid_t <= -threshold) * 1
 
         t_filter = [filter_pvorz, filter_nvorz]
     elif datatype == 'q':
-        filter_q = (grid_t >= threshold * np.amax(grid_t)) * 1
+        filter_q = (grid_t >= threshold) * 1
 
         t_filter = filter_q
 
@@ -163,7 +164,7 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
 
     vor_array = read_sfield(vorz_data_file)
     q_array = read_sfield(q_data_file)
-    wgeo_array = read_wgeo(wgeo_data_file)
+    wgeo_array, w_centroid = read_wgeo(wgeo_data_file)
     # ----------data filtering (pre processing)----------------------
     grid_x, grid_y, grid_vz = grid_vorz(window, resolution, vor_array)
     grid_x, grid_y, grid_q = grid_vorz(window, resolution, q_array)
@@ -236,7 +237,7 @@ def vortices_processing(files_dir, res_parameters, threshold_parameters):
     vz_field = [grid_vz, vz_flags]
     #-------------------------------------------------------------
 
-    return vz_circulations, image_vortices, vz_field, wgeo_bound_x
+    return vz_circulations, image_vortices, vz_field, wgeo_bound_x, w_centroid
 
 
 def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
@@ -297,7 +298,6 @@ def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
         v_vanish_dist = v_vanish_dist_factor * np.amax(
             np.absolute(ref_wing_movement))
 
-    # print(v_vanish_dist)
     vortices_last = marked_vortices_history[-1]
     no_of_vortices, marked_vortices_current = mark_current_vortices(
         no_of_vortices, timei, v_vanish_dist, vortices_last, vortices_current)
@@ -316,16 +316,16 @@ def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
 
         print(f'No of vortices in current field: {no_of_vortices_current}')
 
-    return no_of_vortices, marked_vortices_history
+    return no_of_vortices, marked_vortices_history, v_vanish_dist
 
 
 def write_individual_vortex(window, time_instance, marked_vortices_history,
                             org_vorz_field, vz_field_flags,
-                            individual_vortex_folder, v_no_save_image):
+                            individual_vortex_folder, v_no_save_image,
+                            w_centroid):
     """
     write out individual vortex history data files
     """
-
     marked_vortices_current = marked_vortices_history[-1]
     exist_vortices_no = np.unique(marked_vortices_current[:, 0])
     # print(exist_vortices_no)
@@ -433,10 +433,10 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
         # "text.usetex": True,
         'mathtext.fontset': 'stix',
         'font.family': 'STIXGeneral',
-        'font.size': 14,
+        'font.size': 18,
         'figure.figsize': (10, 6),
         'lines.linewidth': 1,
-        'lines.markersize': 4,
+        'lines.markersize': 0.1,
         'lines.markerfacecolor': 'white',
         'figure.dpi': 100,
     })
@@ -629,7 +629,7 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
         fig3.savefig(out_image_file3)
 
     if 'lift' in items_to_plot:
-        ax4.legend()
+        # ax4.legend()
         ax5.legend()
         out_image_file4 = os.path.join(image_out_path, title4 + '.png')
         out_image_file5 = os.path.join(image_out_path, title5 + '.png')
@@ -637,7 +637,7 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
         fig5.savefig(out_image_file5)
 
     if 'drag' in items_to_plot:
-        ax6.legend()
+        # ax6.legend()
         ax7.legend()
         out_image_file6 = os.path.join(image_out_path, title6 + '.png')
         out_image_file7 = os.path.join(image_out_path, title7 + '.png')
@@ -650,14 +650,24 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
     plt.show()
 
 
-def impulse_cf_processing(vor_dict, ref_constant, processed_vortices_folder,
-                          v_length_lower_limit):
+def impulse_cf_processing(vor_dict, ref_constant, origin_ref,
+                          processed_vortices_folder, v_length_lower_limit,
+                          spl_k):
     """
     function for calculating forces using vortex impulse method
     """
     vorid = np.array(list(vor_dict.keys()))
     vor_history = np.array(list(vor_dict.values()))
     # print(vor_history)
+    t = origin_ref[:, 0]
+    origin_x = origin_ref[:, 1]
+    origin_y = origin_ref[:, 2]
+    ox_spl = UnivariateSpline(t, origin_x, s=0)
+    oy_spl = UnivariateSpline(t, origin_y, s=0)
+    ox_res = ox_spl.get_residual()
+    oy_res = oy_spl.get_residual()
+    print(f'origin_x spline interpolation residual: {ox_res}')
+    print(f'origin_y spline interpolation residual: {oy_res} \n')
 
     new_vorid = []
     new_vor_history = []
@@ -668,25 +678,30 @@ def impulse_cf_processing(vor_dict, ref_constant, processed_vortices_folder,
                                                 voridi)
         if len(vori) >= v_length_lower_limit:
             time = vori[:, 0]
-            x_moment = np.multiply(vori[:, 1], vori[:, 3])
-            y_moment = np.multiply(vori[:, 2], vori[:, 3])
+            x = vori[:, 1]
+            y = vori[:, 2]
+            Gamma = vori[:, 3]
 
-            xm_spl = InterpolatedUnivariateSpline(time, x_moment)
-            ym_spl = InterpolatedUnivariateSpline(time, y_moment)
-            xm_res = xm_spl.get_residual()
-            ym_res = ym_spl.get_residual()
+            x_spl = UnivariateSpline(time, x, k=spl_k)
+            y_spl = UnivariateSpline(time, y, k=spl_k)
+            Gamma_spl = UnivariateSpline(time, Gamma, k=spl_k)
+            x_res = x_spl.get_residual()
+            y_res = y_spl.get_residual()
+            Gamma_res = Gamma_spl.get_residual()
+            print(voridi + f' x spline interpolation residual: {x_res}')
+            print(voridi + f' y spline interpolation residual: {y_res}')
             print(voridi +
-                  f' x_moment spline interpolation residual: {xm_res}')
-            print(voridi +
-                  f' y_moment spline interpolation residual: {ym_res}')
+                  f' Gamma spline interpolation residual: {Gamma_res}')
 
             clift = []
             cdrag = []
             for ti in time:
-                cli = xm_spl.derivatives(ti)[1] / ref_constant
-                cdi = ym_spl.derivatives(ti)[1] / ref_constant
-                clift.append([cli])
-                cdrag.append([cdi])
+                li = x_spl.derivatives(ti)[1] * Gamma_spl(ti) + (
+                    x_spl(ti) - ox_spl(ti)) * Gamma_spl.derivatives(ti)[1]
+                di = y_spl.derivatives(ti)[1] * Gamma_spl(ti) + (
+                    y_spl(ti) - oy_spl(ti)) * Gamma_spl.derivatives(ti)[1]
+                clift.append([li / ref_constant])
+                cdrag.append([-di / ref_constant])
             clift = np.array(clift)
             cdrag = np.array(cdrag)
             # print(vori)
@@ -708,3 +723,23 @@ def impulse_cf_processing(vor_dict, ref_constant, processed_vortices_folder,
     vor_cf_dict = dict(zip(new_vorid, new_vor_history))
 
     return vor_cf_dict
+
+
+def read_origin_ref(origin_data_file):
+    """read reference origin data (default wing centroid location)"""
+    org_array = []
+    with open(origin_data_file) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        line_count = 0
+
+        for row in csv_reader:
+            if line_count == 0:
+                line_count += 1
+            else:
+                org_array.append([float(row[0]), float(row[1]), float(row[2])])
+                line_count += 1
+
+        print(f'Processed {line_count} lines in {origin_data_file}')
+
+    org_array = np.array(org_array)
+    return org_array
