@@ -4,6 +4,7 @@ import csv
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import UnivariateSpline
 
 
 def read_cfd_data(cfd_data_file):
@@ -52,10 +53,21 @@ def read_ref_data(ref_data_file):
 
 
 def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
-               image_out_path):
+               coeffs_show_range, image_out_path, plot_mode):
     """
     function to plot cfd force coefficients results
     """
+    plt.rcParams.update({
+        # "text.usetex": True,
+        'mathtext.fontset': 'stix',
+        'font.family': 'STIXGeneral',
+        'font.size': 18,
+        'figure.figsize': (10, 6),
+        'lines.linewidth': 1,
+        'lines.markersize': 0.1,
+        'lines.markerfacecolor': 'white',
+        'figure.dpi': 100,
+    })
     cf_array = np.array(data_array[0])
     ref_array = np.array(data_array[1])
     cf_legends = np.array(legends[0])
@@ -87,29 +99,77 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
     # print(cf_plot_id)
 
     fig, ax = plt.subplots(1, 1)
+    if plot_mode == 'against_t':
+        for i in range(len(cf_plot_id)):
+            if cf_plot_id[i]:
+                ax.plot(cf_array[i][:, 0],
+                        cf_array[i][:, 3],
+                        label=cf_legends[i])
 
-    for i in range(len(cf_plot_id)):
-        if cf_plot_id[i]:
-            ax.plot(cf_array[i][:, 0], cf_array[i][:, 3], label=cf_legends[i])
+        for i in range(len(ref_plot_id)):
+            if ref_plot_id[i]:
+                ax.plot(ref_array_shifted[i][:, 0],
+                        ref_array_shifted[i][:, 1],
+                        label=ref_legends[i])
 
-    for i in range(len(ref_plot_id)):
-        if ref_plot_id[i]:
-            ax.plot(ref_array_shifted[i][:, 0],
-                    ref_array_shifted[i][:, 1],
-                    label=ref_legends[i])
+        ax.set_xlabel('t (seconds)')
 
-    ax.set_xlabel('t (seconds)')
-    ax.set_ylabel('lift/cl (N/-)')
-    title_sep = ' vs. '
-    title = title_sep.join(data_to_plot)
+    elif plot_mode == 'against_phi':
+        for i in range(len(cf_plot_id)):
+            if cf_plot_id[i]:
+                ax.plot(cf_array[i][:, -1],
+                        cf_array[i][:, 3],
+                        label=cf_legends[i])
+
+        ax.set_xlabel(r'$\phi\/(\deg)$')
+
+    ax.set_ylabel('cl')
+    title = 'lift coefficients plot'
     out_image_file = os.path.join(image_out_path, title + '.png')
     ax.set_title(title)
     ax.legend()
 
     if time_to_plot != 'all':
         ax.set_xlim(time_to_plot)
+    if coeffs_show_range != 'all':
+        ax.set_ylim(coeffs_show_range)
 
     plt.savefig(out_image_file)
     plt.show()
 
     return fig
+
+
+def append_kinematics_array(cfd_arr, kinematics_data_file):
+    """read stroke angle and append to cfd array"""
+    kinematics_arr = []
+    with open(kinematics_data_file) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter='(')
+        line_count = 0
+
+        for row in csv_reader:
+            if line_count <= 1:
+                line_count += 1
+            elif row[0] == ')':
+                line_count += 1
+            else:
+                t_datai = row[1]
+                phi_datai = row[-1].split()[0]
+                kinematics_arr.append(
+                    [float(t_datai), np.abs(float(phi_datai))])
+                line_count += 1
+
+        print(f'Processed {line_count} lines in {kinematics_data_file}')
+
+    kinematics_arr = np.array(kinematics_arr)
+    phi_spl = UnivariateSpline(kinematics_arr[:, 0], kinematics_arr[:, 1])
+
+    phi = []
+    for ti in cfd_arr[:, 0]:
+        phii = phi_spl(ti)
+        phi.append([phii])
+    phi = np.array(phi)
+
+    cfd_arr = np.append(cfd_arr, phi, axis=1)
+
+    return cfd_arr
