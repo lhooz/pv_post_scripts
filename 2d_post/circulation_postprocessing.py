@@ -12,8 +12,8 @@ from cprocessing_functions import read_all_vortices, read_origin_ref, plot_v_his
 #--list: plot particular vortex in the list--
 #--------------------------------------------
 # vortices_to_plot = 'all'
-vortices_to_plot = 12
-# vortices_to_plot = [3, 12, 30]
+# vortices_to_plot = 12
+vortices_to_plot = [1, 2, 14, 17]
 # vortices_to_plot = [x for x in range(20, 37)]
 #--------------------------------------------
 time_to_plot = 'all'
@@ -24,9 +24,9 @@ items_to_plot = ['vortices', 'lift']
 #--minimum time series length of vortices used for cf calculation--
 v_length_lower_limit = 6
 #--spline interpolation order for circulations: 1 ~ 5 --
-spline_interp_order = 3
+spline_interp_order = 5
 #--reference constant for cf calculation--
-ref_constant = 15.6
+ref_constant = 5.6816
 #------------------------------------------
 cwd = os.getcwd()
 individual_vortex_folder = os.path.join(cwd, 'individual_vortex_history')

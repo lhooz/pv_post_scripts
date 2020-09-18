@@ -246,24 +246,58 @@ def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
     give number to all current vortices according to numbers in last time step
     """
     marked_vortices_current = []
-    for vortex in vortices_current:
-        vectori = np.array([[vl[2] - vortex[0], vl[3] - vortex[1]]
-                            for vl, vc in zip(vortices_last, vortices_current)
-                            ])
+    identified_id = []
+    identified_min_dist = []
+    identified_marks = []
+    for vortex in vortices_last:
+        vectori = np.array([[vc[0] - vortex[2], vc[1] - vortex[3]]
+                            for vc in vortices_current])
         dist_array = np.linalg.norm(vectori, axis=1)
         id_min = dist_array.argmin()
+        min_disti = dist_array[id_min]
         # print(dist_array[id_min])
 
+        vortex_mark = 'none'
         if dist_array[id_min] <= v_vanish_dist:
-            vortex_mark = vortices_last[id_min][0]
-        else:
+            if not id_min in identified_id:
+                vortex_mark = vortex[0]
+                identified_id.append(id_min)
+                identified_min_dist.append(min_disti)
+                identified_marks.append(vortex_mark)
+            else:
+                last_id = identified_id.index(id_min)
+                last_min_dist = identified_min_dist[last_id]
+                if last_min_dist >= min_disti:
+                    vortex_mark = vortex[0]
+                    del identified_id[last_id]
+                    del identified_min_dist[last_id]
+                    del identified_marks[last_id]
+                    del marked_vortices_current[last_id]
+                    identified_id.append(id_min)
+                    identified_min_dist.append(min_disti)
+                    identified_marks.append(vortex_mark)
+
+        if vortex_mark != 'none':
+            marked_vortex = [
+                vortex_mark, timei, vortices_current[id_min][0],
+                vortices_current[id_min][1], vortices_current[id_min][2],
+                vortices_current[id_min][3]
+            ]
+            marked_vortices_current.append(marked_vortex)
+
+    identified_marks_str = [str(int(x)) for x in identified_marks]
+    print('identified vortices: (' + ', '.join(identified_marks_str) + ')')
+    for i in range(len(vortices_current)):
+        if not i in identified_id:
             no_of_vortices += 1
             vortex_mark = no_of_vortices
 
-        marked_vortex = [
-            vortex_mark, timei, vortex[0], vortex[1], vortex[2], vortex[3]
-        ]
-        marked_vortices_current.append(marked_vortex)
+            marked_vortex = [
+                vortex_mark, timei, vortices_current[i][0],
+                vortices_current[i][1], vortices_current[i][2],
+                vortices_current[i][3]
+            ]
+            marked_vortices_current.append(marked_vortex)
 
     marked_vortices_current = np.array(marked_vortices_current)
 
@@ -272,7 +306,7 @@ def mark_current_vortices(no_of_vortices, timei, v_vanish_dist, vortices_last,
 
 def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
                       v_vanish_dist_factor, marked_vortices_history,
-                      vortices_current, vortices_type):
+                      vortices_current, ref_constant, vortices_type):
     """
     tracking algorithm for individual vortex
     """
@@ -295,8 +329,10 @@ def vortices_tracking(no_of_vortices, timei, wgeo_boundx_history,
                                         wgeo_boundx_history[-2])
         ref_wing_movement = np.array(ref_wing_movement)
 
-        v_vanish_dist = v_vanish_dist_factor * np.amax(
+        v_vanish_dist_org = v_vanish_dist_factor * np.amax(
             np.absolute(ref_wing_movement))
+        v_vanish_dist_lb = np.sqrt(2 * ref_constant) / 20
+        v_vanish_dist = max(v_vanish_dist_org, v_vanish_dist_lb)
 
     vortices_last = marked_vortices_history[-1]
     no_of_vortices, marked_vortices_current = mark_current_vortices(
@@ -474,7 +510,7 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
         fig5.suptitle(title5)
 
         total_lift_coeffs = np.zeros([1, 2])
-        total_lift_coeffs_file = os.path.join(cwd, 'summed_cl')
+        total_lift_coeffs_file = os.path.join(cwd, 'impulse_cl.csv')
         with open(total_lift_coeffs_file, 'w') as f:
             f.write("%s\n" % ', '.join([str(x) for x in total_lift_coeffs[0]]))
 
@@ -492,7 +528,7 @@ def plot_v_history(vor_dict, image_out_path, vortices_to_plot, time_to_plot,
         fig7.suptitle(title7)
 
         total_drag_coeffs = np.zeros([1, 2])
-        total_drag_coeffs_file = os.path.join(cwd, 'summed_cd')
+        total_drag_coeffs_file = os.path.join(cwd, 'impulse_cd.csv')
         with open(total_drag_coeffs_file, 'w') as f:
             f.write("%s\n" % ', '.join([str(x) for x in total_drag_coeffs[0]]))
 

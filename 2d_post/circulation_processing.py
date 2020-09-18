@@ -11,18 +11,20 @@ from cprocessing_functions import (field_plot, vortices_processing,
                                    vortices_tracking, write_individual_vortex)
 
 #--------------input parameters------------
-window = [-6, 4, -4, 4]
-resolution = [1000, 800]
+window = [-5, 2, -3, 3]
+resolution = [700, 600]
 vortex_no_to_save_as_image = []  # enpty means not saving any vortex image
-data_time_increment = 2e-3
+data_time_increment = 1e-2
 #------------------------
 wbound_radius = 0
 #----q and vorz thresholds are absolute values, circulation is wrt. maximum (positive and negative)-------
-threshold_q = 1e-4
-threshold_vorz = 1e-2
+threshold_q = 0
+threshold_vorz = 1
 threshold_circulation = 1e-1
 #--multiply by wing displacement to determine the max. travel dist in one t_step for vortices, vortices are considered as the same one if its traveled dist is less than this value--
-v_vanish_dist_factor = 1.5
+v_vanish_dist_factor = 50
+#--reference constant for setting up vanish distance lower bound--
+ref_constant = 5.6816
 #---------------------------
 cwd = os.getcwd()
 vorz_folder = os.path.join(cwd, 'vorz_data')
@@ -105,10 +107,10 @@ for ti in range(start_t, end_t + 1):
     print(f'Current Time: {timei}')
     no_of_vortices, marked_pvortices_history, v_vanish_dist = vortices_tracking(
         no_of_vortices, timei, wgeo_boundx_history, v_vanish_dist_factor,
-        marked_pvortices_history, pvortices, 'positive')
+        marked_pvortices_history, pvortices, ref_constant, 'positive')
     no_of_vortices, marked_nvortices_history, v_vanish_dist = vortices_tracking(
         no_of_vortices, timei, wgeo_boundx_history, v_vanish_dist_factor,
-        marked_nvortices_history, nvortices, 'negative')
+        marked_nvortices_history, nvortices, ref_constant, 'negative')
     # print(marked_pvortices_history)
     print(f'Total No of vortices in history: {no_of_vortices}')
     print(f'Vortices identification distance: {v_vanish_dist} \n')
