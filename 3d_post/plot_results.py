@@ -14,6 +14,7 @@ data_to_plot = ['conv_ac01', 'conv_ac05', 'conv_sc', 'conv_tc']
 # coeffs_show_range = 'all'
 time_to_plot = [0, 1500]
 coeffs_show_range = [-0.5, 3]
+cycle_time = 1
 #---------------------------------------
 cwd = os.getcwd()
 image_out_path = cwd
@@ -40,4 +41,4 @@ legends = [cfd_data_list, ref_data_lst]
 #---------------------------------------
 
 cf_plotter(data_array, legends, data_to_plot, time_to_plot, coeffs_show_range,
-           image_out_path, 'against_phi')
+           image_out_path, cycle_time, 'against_phi')

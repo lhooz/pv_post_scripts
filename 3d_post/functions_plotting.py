@@ -53,7 +53,7 @@ def read_ref_data(ref_data_file):
 
 
 def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
-               coeffs_show_range, image_out_path, plot_mode):
+               coeffs_show_range, image_out_path, cycle_time, plot_mode):
     """
     function to plot cfd force coefficients results
     """
@@ -102,7 +102,7 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
     if plot_mode == 'against_t':
         for i in range(len(cf_plot_id)):
             if cf_plot_id[i]:
-                ax.plot(cf_array[i][:, 0],
+                ax.plot(cf_array[i][:, 0] / cycle_time,
                         cf_array[i][:, 3],
                         label=cf_legends[i])
 
@@ -112,7 +112,7 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
                         ref_array_shifted[i][:, 1],
                         label=ref_legends[i])
 
-        ax.set_xlabel('t (seconds)')
+        ax.set_xlabel('t (periods)')
 
     elif plot_mode == 'against_phi':
         for i in range(len(cf_plot_id)):
