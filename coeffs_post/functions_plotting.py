@@ -112,17 +112,27 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
                         ref_array_shifted[i][:, 1],
                         label=ref_legends[i])
 
-        ax.set_xlabel('t (periods)')
+        ax.set_xlabel(r'$tU/c$')
 
     elif plot_mode == 'against_phi':
+        for i in range(len(cf_plot_id)):
+            if cf_plot_id[i]:
+                ax.plot(cf_array[i][:, -2],
+                        cf_array[i][:, 3],
+                        label=cf_legends[i])
+
+        ax.set_xlabel(r'$\phi\/(\deg)$')
+
+    elif plot_mode == 'against_dist':
         for i in range(len(cf_plot_id)):
             if cf_plot_id[i]:
                 ax.plot(cf_array[i][:, -1],
                         cf_array[i][:, 3],
                         label=cf_legends[i])
 
-        ax.set_xlabel(r'$\phi\/(\deg)$')
+        ax.set_xlabel(r'$s/c$')
 
+    # print(cf_array[:, -1])
     ax.set_ylabel('cl')
     title = 'lift coefficients plot'
     out_image_file = os.path.join(image_out_path, title + '.png')
@@ -134,6 +144,8 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
     if coeffs_show_range != 'all':
         ax.set_ylim(coeffs_show_range)
 
+
+    plt.axhline(y=0, color='k', linestyle='--', linewidth=0.5)
     plt.savefig(out_image_file)
     plt.show()
 
@@ -142,7 +154,8 @@ def cf_plotter(data_array, legends, data_to_plot, time_to_plot,
 
 def append_kinematics_array(cfd_arr, kinematics_data_file):
     """read stroke angle and append to cfd array"""
-    kinematics_arr = []
+    phi_arr = []
+    trans_arr = []
     with open(kinematics_data_file) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter='(')
         line_count = 0
@@ -155,21 +168,31 @@ def append_kinematics_array(cfd_arr, kinematics_data_file):
             else:
                 t_datai = row[1]
                 phi_datai = row[-1].split()[0]
-                kinematics_arr.append(
-                    [float(t_datai), np.abs(float(phi_datai))])
+                # print(row)
+                trans_datai = row[3].split()[0]
+                # print(trans_datai)
+                phi_arr.append([float(t_datai), np.abs(float(phi_datai))])
+                trans_arr.append([float(t_datai), np.abs(float(trans_datai))])
                 line_count += 1
 
         print(f'Processed {line_count} lines in {kinematics_data_file}')
 
-    kinematics_arr = np.array(kinematics_arr)
-    phi_spl = UnivariateSpline(kinematics_arr[:, 0], kinematics_arr[:, 1])
+    phi_arr = np.array(phi_arr)
+    trans_arr = np.array(trans_arr)
+    phi_spl = UnivariateSpline(phi_arr[:, 0], phi_arr[:, 1], s=0)
+    trans_spl = UnivariateSpline(trans_arr[:, 0], trans_arr[:, 1], s=0)
 
     phi = []
+    trans = []
     for ti in cfd_arr[:, 0]:
         phii = phi_spl(ti)
+        transi = trans_spl(ti)
         phi.append([phii])
+        trans.append([transi])
     phi = np.array(phi)
+    trans = np.array(trans)
 
     cfd_arr = np.append(cfd_arr, phi, axis=1)
+    cfd_arr = np.append(cfd_arr, trans, axis=1)
 
     return cfd_arr
