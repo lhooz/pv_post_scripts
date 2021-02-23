@@ -73,19 +73,15 @@ for sec_loci, sec_disti in zip(sec_loc, sec_dist):
         shutil.rmtree(geop_output_folder)
     os.mkdir(geop_output_folder)
 
-    print(f'\nSection loc. = {sec_loci}\n')
+    print(f'\nSection loc. = {sec_loci}')
+    print(f'Section dist. = {sec_disti}\n')
 
     for ki in kinematics_arr:
         time = ki[0]
         phi = ki[1]
         #--------slice section data----
-        sN_vector = [
-            0.0,
-            np.cos(phi * np.pi / 180) * sec_disti,
-            np.sin(phi * np.pi / 180) * sec_disti
-        ]
         print(f'Time = {time}')
-        print('Section normal vector = %s' % str(sN_vector))
+        print(f'Flapping angle = {phi}')
         #------------------------------
 
         field_output_files = os.path.join(
@@ -105,12 +101,16 @@ for sec_loci, sec_disti in zip(sec_loc, sec_dist):
         #-----------field data processing------
         clip1 = FindSource('Clip1')
         SetActiveSource(clip1)
+        #--------------------------------------
+        transform1 = Transform(Input=clip1)
+        transform1.Transform = 'Transform'
+        transform1.Transform.Rotate = [-1 * phi, 0.0, 0.0]
         # create a new 'Slice'
-        slice1 = Slice(Input=clip1)
+        slice1 = Slice(Input=transform1)
         slice1.SliceType = 'Plane'
         slice1.SliceOffsetValues = [0.0]
-        slice1.SliceType.Origin = sN_vector
-        slice1.SliceType.Normal = sN_vector
+        slice1.SliceType.Origin = [0.0, sec_disti, 0.0]
+        slice1.SliceType.Normal = [0.0, 1.0, 0.0]
         #--------------------
         SetActiveSource(slice1)
         slice1Display = Show(slice1, spreadSheetView1)
@@ -120,17 +120,26 @@ for sec_loci, sec_disti in zip(sec_loc, sec_dist):
                  proxy=slice1,
                  Precision=10,
                  UseScientificNotation=1)
+        #--------------------
+        Delete(slice1)
+        del slice1
+        Delete(transform1)
+        del transform1
 
         #----------wing geometry data processing-----
         # find source
         wing = FindSource('wing')
         SetActiveSource(wing)
+        #----------------------------------
+        transform2 = Transform(Input=wing)
+        transform2.Transform = 'Transform'
+        transform2.Transform.Rotate = [-1 * phi, 0.0, 0.0]
         # create a new 'Slice'
-        slice2 = Slice(Input=wing)
+        slice2 = Slice(Input=transform2)
         slice2.SliceType = 'Plane'
         slice2.SliceOffsetValues = [0.0]
-        slice2.SliceType.Origin = sN_vector
-        slice2.SliceType.Normal = sN_vector
+        slice2.SliceType.Origin = [0.0, sec_disti, 0.0]
+        slice2.SliceType.Normal = [0.0, 1.0, 0.0]
         # show data in view
         SetActiveSource(slice2)
         slice2Display = Show(slice2, spreadSheetView1)
@@ -140,3 +149,8 @@ for sec_loci, sec_disti in zip(sec_loc, sec_dist):
                  proxy=slice2,
                  Precision=10,
                  UseScientificNotation=1)
+        #--------------------
+        Delete(slice2)
+        del slice2
+        Delete(transform2)
+        del transform2
