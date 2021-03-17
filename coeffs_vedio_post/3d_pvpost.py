@@ -10,7 +10,7 @@ paraview.simple._DisableFirstRenderCameraReset()
 
 cwd = os.getcwd()
 
-pvstate_file = os.path.join(cwd, 'backGround/paraview/3d_wing_post.pvsm')
+pvstate_file = os.path.join(cwd, 'backGround/paraview/3d_wing_vedio.pvsm')
 foam_file = os.path.join(cwd, 'backGround/open.foam')
 output_folder = os.path.join(cwd, 'backGround/paraview/anime')
 
@@ -41,8 +41,8 @@ SetActiveView(renderView1)
 SaveAnimation(
     output_files,
     renderView1,
-    ImageResolution=[772, 338],
-    OverrideColorPalette='BlackBackground',
-    FrameWindow=[0, 799],
+    ImageResolution=[1458, 678],
+    OverrideColorPalette='WhiteBackground',
+    FrameWindow=[0, 99],
     # JPEG options
     Quality=100)
