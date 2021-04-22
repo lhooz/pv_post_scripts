@@ -22,7 +22,7 @@ for sec in sec_loc:
     sec_disti = sec * wspan + ofs_dist
     sec_dist.append(sec_disti)
 #---------------------------------------
-pvstate_file = os.path.join(cwd, 'backGround', 'paraview', '3d_wing_post.pvsm')
+pvstate_file = os.path.join(cwd, 'backGround', 'paraview', '3d_wing_section_post.pvsm')
 kinematics_file = os.path.join(cwd, 'backGround', 'paraview', 'k_sequence.csv')
 foam_file = os.path.join(cwd, 'backGround/open.foam')
 result_data_folder = os.path.join(cwd, 'processed_sec_data')
