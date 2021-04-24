@@ -8,6 +8,8 @@ import numpy as np
 from paraview.simple import *
 
 #-----------------------
+Q_contour_value = 2.0
+#-----------------------
 c_bar = 0.06
 #--------------------------------
 #### disable automatic camera reset on 'Show'
@@ -55,10 +57,12 @@ with open(Uref_file) as csv_file:
     for row in csv_reader:
         if line_count == 22:
             Uref = row[5].split(';')[0]
-            print(Uref)
+            # print(Uref)
             Uref = float(Uref)
         line_count += 1
-Qscale_constant = (c_bar / Uref)**2
+
+print(f'Uref = {Uref}')
+Qscale_constant = (c_bar / Uref)**2 / Q_contour_value
 #----------------------------------------
 # load state
 LoadState(pvstate_file,
@@ -73,6 +77,7 @@ for ki in kinematics_arr:
     #--------slice section data----
     print(f'Time = {time}')
     print(f'Flapping angle = {phi}')
+    print(f'Pitch angle = {theta}')
     #----------------------------------------
     image_output_files = os.path.join(
         flow_image_folder, 'image_' + '{0:.2f}'.format(time) + '.png')
@@ -85,16 +90,21 @@ for ki in kinematics_arr:
     #---------------------------------------------
     renderView1 = FindViewOrCreate('RenderView1', viewtype='RenderView')
     renderView2 = FindViewOrCreate('RenderView2', viewtype='RenderView')
-    #---------------------------------------------
+    renderView3 = FindViewOrCreate('RenderView3', viewtype='RenderView')
+    #----------------rot for phi-----------------------------
     rot_field = FindSource('Rot_field')
     SetActiveSource(rot_field)
     rot_field.Transform.Rotate = [-1.0 * phi, 0.0, 0.0]
-    rot_field.Transform.Rotate = [0.0, -1.0 * theta, 0.0]
-    #--------------------------------------------
     rot_wing = FindSource('Rot_wing')
     SetActiveSource(rot_wing)
     rot_wing.Transform.Rotate = [-1.0 * phi, 0.0, 0.0]
-    rot_wing.Transform.Rotate = [0.0, -1.0 * theta, 0.0]
+    #----------------rot for pitch-----------------------------
+    rot_field_P = FindSource('Rot_field_P')
+    SetActiveSource(rot_field_P)
+    rot_field_P.Transform.Rotate = [0.0, -1.0 * theta, 0.0]
+    rot_wing_P = FindSource('Rot_wing_P')
+    SetActiveSource(rot_wing_P)
+    rot_wing_P.Transform.Rotate = [0.0, -1.0 * theta, 0.0]
     #-------------------------------------------
     q_scaled = FindSource('Q_scaled')
     SetActiveSource(q_scaled)
@@ -102,6 +112,7 @@ for ki in kinematics_arr:
     #-------------------------------------------
     renderView1.Update()
     renderView2.Update()
+    renderView3.Update()
 
     layout1 = GetLayout()
 
@@ -113,4 +124,4 @@ for ki in kinematics_arr:
         ImageResolution=[2500, 1356],
         OverrideColorPalette='WhiteBackground',
         # PNG options
-        CompressionLevel='0')
+        CompressionLevel='4')
