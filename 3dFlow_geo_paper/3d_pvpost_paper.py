@@ -8,7 +8,7 @@ import numpy as np
 from paraview.simple import *
 
 #-----------------------
-Q_contour_value = 2.0
+Q_contour_value = 4.0
 #-----------------------
 c_bar = 0.06
 #--------------------------------
