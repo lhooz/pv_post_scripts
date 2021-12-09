@@ -7,7 +7,7 @@ from functions_plotting import cf_plotter, read_cfd_data, read_ref_data, append_
 cfd_data_list = [
     # 'Re100.0_stroke9.0_acf0.25_pf0.125', 'Re100.0_stroke9.0_acf0.25_pf0.25',
     # 'Re100.0_stroke9.0_acf0.25_pf0.5'
-    'Re10000.0_stroke1.5_acf0.25_pf0.25_pa0.0'
+    'coefficient.dat'
 ]
 # ref_data_lst = ['sym_exp', 'sym_cfd1', 'sym_cfd2']
 ref_data_lst = []
@@ -21,7 +21,7 @@ data_to_plot = cfd_data_list
 #---------------------------------------
 time_to_plot = 'all'
 coeffs_show_range = 'all'
-time_to_plot = [0, 2]
+time_to_plot = [0, 6]
 # coeffs_show_range = [-1, 3]
 cycle_time = 1
 #---------------------------------------

@@ -1,0 +1,26 @@
+#!/bin/bash --login
+
+#$ -pe smp.pe 4
+#$ -cwd
+
+#$ -t 1-24
+cd ..
+mkdir ./FLOW_IMAGES
+readarray -t JOB_DIRS < <(find . -mindepth 1 -maxdepth 1 -name '*Re*' -printf '%P\n')
+
+module load apps/binapps/anaconda3/2019.07  # Python 3.7.3
+module load apps/binapps/paraview/5.7.0
+
+TID=$[SGE_TASK_ID-1]
+JOBDIR=${JOB_DIRS[$TID]}
+
+cp 3dFlowStructurePost/3dFlowStructure.pvsm $JOBDIR/backGround/paraview
+cp 3dFlowStructurePost/*.py $JOBDIR
+
+cd $JOBDIR
+echo "Running SGE_TASK_ID $SGE_TASK_ID in directory $JOBDIR"
+python pre_kinematics.py
+mpiexec -n $NSLOTS pvbatch 3dFlowStructurePV.py | tee log.pvpost
+cd ..
+mkdir ./FLOW_IMAGES/$JOBDIR
+cp -r $JOBDIR/flow_images ./FLOW_IMAGES/$JOBDIR

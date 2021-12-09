@@ -1,0 +1,45 @@
+// -*- C++ -*-
+/*-----------------------------------------------------------------------------*/
+streamLine1
+{
+    // Mandatory entries (unmodifiable)
+    type            streamLine;
+    libs            (fieldFunctionObjects);
+
+    // Mandatory entries (runtime modifiable)
+    U               U;
+    fields          (U p k);
+    setFormat       vtk;
+    direction       bidirectional;
+    lifeTime        10000;
+    cloud           particleTracks;
+    seedSampleSet
+    {
+        type        cloud;
+        axis        xyz;
+        points  (
+        (-0.075 -0.02 -0.008)
+        );
+    }
+
+    // Optional entries (runtime modifiable)
+    bounds          (-10 -10 -10)(10 10 10);
+    //trackLength     1e-3;
+    nSubCycle       1;
+    interpolationScheme cellPoint;
+
+    // Deprecated
+    // trackForward true;
+
+    // Optional (inherited) entries
+    region          region0;
+    enabled         true;
+    log             true;
+    timeStart       0;
+    timeEnd         1000;
+    executeControl  timeStep;
+    executeInterval 1;
+    writeControl    timeStep;
+    writeInterval   1;
+}
+// ************************************************************************* //
